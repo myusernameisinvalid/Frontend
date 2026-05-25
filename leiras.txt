@@ -1,0 +1,304 @@
+npm install
+npm run dev
+npm install bootstrap bootstrap-icons react-router-dom axios
+--------------------------------------------------------------------
+main.jsx:
+import 'bootstrap/dist/css/bootstrap.min.css';
+import 'bootstrap-icons/font/bootstrap-icons.css';
+import 'bootstrap/dist/js/bootstrap.bundle.min.js';
+--------------------------------------------------------------------
+App.jsx:
+// 3. FELADAT: React Router csomag elemeinek beimportálása az útvonalakhoz
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import Home from './Home';
+import Player from './Player';
+import AddPlayer from './AddPlayer';
+
+export default function App() {
+  return (
+    // 3. FELADAT: A teljes alkalmazást Router-be ágyazzuk
+    <Router>
+      {/* Bootstrap 'container' a reszponzív, középre igazított elrendezésért */}
+      <div className="container mt-4">
+        <Routes>
+          {/* Főoldal útvonala: Itt listázzuk ki az összes játékost */}
+          <Route path="/" element={<Home />} />
+          
+          {/* 8. FELADAT: Egyedi játékos aloldal útvonala dynamic :id paraméterrel */}
+          <Route path="/darts/:id" element={<Player />} />
+          
+          {/* 10. FELADAT: Új játékos felvételének útvonala (/uj-darts) */}
+          <Route path="/uj-darts" element={<AddPlayer />} />
+        </Routes>
+      </div>
+    </Router>
+  );
+}
+--------------------------------------------------------------------
+
+Home.jsx:
+import { useState, useEffect } from 'react';
+// 6. FELADAT: Az adatok lekéréséhez az Axios csomagot használjuk
+import axios from 'axios';
+// 3. és 8. FELADAT: A Link komponenst használjuk az oldalak közötti belső navigációra
+import { Link } from 'react-router-dom';
+
+export default function Home() {
+  // State (állapot) a backendről érkező játékosok tömbjének tárolására
+  const [players, setPlayers] = useState([]);
+
+  // useEffect: Az oldal betöltődésekor azonnal lefut az adatlekérés
+  useEffect(() => {
+    // 4. FELADAT: REST API GET kérés indítása a kiszolgáló szerver /darts URL-jére
+    axios.get('https://localhost:5000/darts')
+      .then(response => {
+        setPlayers(response.data); // A szervertől kapott tömböt elmentjük a state-be
+      })
+      .catch(error => {
+        console.error("Hiba történt a főoldali lekérés során:", error);
+      });
+  }, []);
+
+  return (
+    <div className="container py-4">
+      {/* Fejléc és az Új játékos gomb szekciója */}
+      <div className="d-flex justify-content-between align-items-center mb-5 border-bottom pb-3">
+        <h1 className="display-6 fw-bold text-dark">Darts World Champions</h1>
+        
+        {/* 10. FELADAT: "Add player" gomb, ami rákattintva a /uj-darts útvonalra navigál */}
+        <Link to="/uj-darts" className="btn btn-success d-flex align-items-center gap-2">
+          <i className="bi bi-person-plus-fill fs-5"></i> Add player
+        </Link>
+      </div>
+
+      {/* 6. FELADAT: Reszponzív Bootstrap rács (Row/Col) rendszer a minta elrendezés követésére */}
+      <div className="row row-cols-1 row-cols-sm-2 row-cols-md-3 g-4">
+        {players.map(player => (
+          <div className="col" key={player.id}>
+            {/* Bootstrap kártya dizájn */}
+            <div className="card h-100 shadow-sm border-1">
+              
+              {/* 5. FELADAT: Kép megjelenítése a backend-ből kapott webes 'image_url' link beillesztésével */}
+              <div className="text-center p-3 bg-light">
+                <img 
+                  src={player.image_url} 
+                  alt={player.nev} 
+                  className="card-img-top img-fluid rounded"
+                  style={{ maxHeight: '220px', objectFit: 'contain' }}
+                />
+              </div>
+
+              {/* Játékos szöveges adatai */}
+              <div className="card-body text-center">
+                <h5 className="card-title fw-bold">{player.nev}</h5>
+                <p className="card-text text-muted mb-1">Született: {player.birth_date}</p>
+                <p className="card-text fw-semibold">
+                  Nyert VB-k: <span className="badge bg-warning text-dark">{player.world_ch_won}</span>
+                </p>
+                <a href={player.profile_url} target="_blank" rel="noreferrer" className="btn btn-sm btn-link text-decoration-none">
+                  Profil megnyitása <i className="bi bi-box-arrow-up-right"></i>
+                </a>
+              </div>
+
+              {/* 7. FELADAT: Különböző Bootstrap ikonok megjelenítése a kártyák alján */}
+              <div className="card-footer d-flex justify-content-around bg-white border-top-0 pb-3">
+                
+                {/* 8. FELADAT: Kattintásra az adott játékos egyedi aloldalára (/darts/:id) navigál, új ablak nyitása nélkül */}
+                <Link to={`/darts/${player.id}`} className="btn btn-outline-primary btn-sm" title="Részletek megtekintése">
+                  <i className="bi bi-eye-fill fs-5"></i>
+                </Link>
+
+                {/* Módosítás ikon gomb */}
+                <button className="btn btn-outline-warning btn-sm" title="Módosítás">
+                  <i className="bi bi-pencil-square fs-5"></i>
+                </button>
+
+                {/* Törlés ikon gomb */}
+                <button className="btn btn-outline-danger btn-sm" title="Törlés">
+                  <i className="bi bi-trash3-fill fs-5"></i>
+                </button>
+              </div>
+
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+--------------------------------------------------------------------
+
+Player.jsx:
+import { useState, useEffect } from 'react';
+// 8. és 9. FELADAT: A useParams segít kiolvasni az URL-ből a játékos egyedi ID-ját (:id)
+import { useParams, Link } from 'react-router-dom';
+import axios from 'axios';
+
+export default function Player() {
+  const { id } = useParams(); // URL-ből kinyert azonosító variable
+  const [player, setPlayer] = useState(null);
+
+  useEffect(() => {
+    // 9. FELADAT: Egyetlen könyv/játékos lekérdezése a /darts/{id} REST API végpontról
+    axios.get(`https://localhost:5000/darts/${id}`)
+      .then(response => {
+        setPlayer(response.data);
+      })
+      .catch(error => {
+        console.error("Hiba az egyedi adatlap betöltésekor:", error);
+      });
+  }, [id]);
+
+  // Biztonsági ellenőrzés, amíg az aszinkron adat megérkezik a backendről
+  if (!player) {
+    return <div className="text-center mt-5"><div className="spinner-border text-primary"></div></div>;
+  }
+
+  return (
+    <div className="container py-5">
+      <div className="card mx-auto shadow-lg border-0" style={{ maxWidth: '700px' }}>
+        <div className="row g-0 align-items-center">
+          
+          {/* 5. FELADAT: Játékos képének megjelenítése */}
+          <div className="col-md-5 p-4 text-center">
+            <img src={player.image_url} alt={player.nev} className="img-fluid rounded shadow-sm" />
+          </div>
+          
+          {/* Adatok listázása */}
+          <div className="col-md-7">
+            <div className="card-body p-4">
+              <h2 className="card-title fw-bold text-primary mb-3">{player.nev}</h2>
+              <hr />
+              <p className="card-text fs-5"><strong>Azonosító (ID):</strong> {player.id}</p>
+              <p className="card-text fs-5"><strong>Születési dátum:</strong> {player.birth_date}</p>
+              <p className="card-text fs-5"><strong>Világbajnoki címek száma:</strong> <span className="badge bg-success fs-6">{player.world_ch_won} db</span></p>
+              <p className="card-text">
+                <strong>Hivatalos profil:</strong> <br />
+                <a href={player.profile_url} target="_blank" rel="noreferrer" className="text-break">{player.profile_url}</a>
+              </p>
+              
+              {/* Akció gombok alsó elrendezése */}
+              <div className="d-flex gap-3 mt-4">
+                
+                {/* 7. FELADAT: Vissza navigáláshoz ikon elhelyezése és funkció biztosítása a főoldalra */}
+                <Link to="/" className="btn btn-secondary d-flex align-items-center gap-2">
+                  <i className="bi bi-arrow-left-square-fill fs-5"></i> Vissza
+                </Link>
+                
+                {/* 7. FELADAT: Módosításhoz ikon elhelyezése az egyedi adatlapon */}
+                <button className="btn btn-warning d-flex align-items-center gap-2">
+                  <i className="bi bi-pencil-fill fs-5"></i> Módosítás
+                </button>
+              </div>
+
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+--------------------------------------------------------------------
+AddPlayer.jsx:
+import { useState } from 'react';
+// 11. FELADAT: A useNavigate hook szükséges az adatok sikeres elküldése utáni automatikus visszairányításhoz
+import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
+
+export default function AddPlayer() {
+  const navigate = useNavigate();
+
+  // 14. FELADAT MEZŐK: Állapotváltozók (states) létrehozása az űrlap mezőinek követéséhez
+  const [id, setId] = useState('');
+  const [nev, setNev] = useState('');
+  const [birthDate, setBirthDate] = useState('');
+  const [worldChWon, setWorldChWon] = useState('');
+  const [profileUrl, setProfileUrl] = useState('');
+  const [imageUrl, setImageUrl] = useState('');
+
+  // Az űrlap elküldésekor lefutó logikai függvény
+  const handleSubmit = (e) => {
+    e.preventDefault(); // Megakadályozza az oldal alapértelmezett böngésző-újratöltését
+
+    // A 14. feladatban kért struktúra szerint felépített küldendő adatobjektum
+    const playerPayload = {
+      id: Number(id), // Számmá alakítás az adatbázis formátum kedvéért
+      nev: nev,
+      birth_date: birthDate,
+      world_ch_won: Number(worldChWon), // Számmá alakítás
+      profile_url: profileUrl,
+      image_url: imageUrl
+    };
+
+    // 13. FELADAT: Új játékos adatainak elküldése a kiszolgáló szerver /darts URL-jére POST metódussal
+    axios.post('https://localhost:5000/darts', playerPayload)
+      .then(response => {
+        // 12. FELADAT (1. rész): A backend által visszaküldött válasz sikeres megjelenítése alert ablakban
+        alert("Sikeres mentés! A backend válasza: Játékos rögzítve.");
+        
+        // 11. FELADAT: Az adatok sikeres átküldése után automatikusan navigáljon vissza a főoldalra
+        navigate('/');
+      })
+      .catch(error => {
+        // 12. FELADAT (2. rész): Hiba esetén lekezeli a hibát és strukturáltan kiírja a console-ba
+        console.error("Hiba történt a POST küldés során:", error);
+        alert("Hiba lépett fel a küldés közben, részletek a fejlesztői konzolban!");
+      });
+  };
+
+  return (
+    <div className="container my-4" style={{ maxWidth: '600px' }}>
+      
+      {/* 15. FELADAT: Behelyettesítve a vizsgázó neve helyére a saját neved, hogy látszódjon a tel.jpg képernyőképen! */}
+      <div className="alert alert-dark text-center fw-bold shadow-sm mb-4">
+        Vizsgázó neve: asd
+      </div>
+
+      <h2 className="mb-4 text-center fw-bold text-success">Add New Darts Player</h2>
+      
+      <form onSubmit={handleSubmit} className="card p-4 shadow bg-light">
+        {/* ID input mező */}
+        <div className="mb-3">
+          <label className="form-label fw-bold">Azonosító (ID)</label>
+          <input type="number" className="form-control" value={id} onChange={e => setId(e.target.value)} required placeholder="Pl.: 8" />
+        </div>
+
+        {/* Név input mező */}
+        <div className="mb-3">
+          <label className="form-label fw-bold">Játékos Neve</label>
+          <input type="text" className="form-control" value={nev} onChange={e => setNev(e.target.value)} required placeholder="Pl.: Dennis Priestley" />
+        </div>
+
+        {/* Születési dátum input mező */}
+        <div className="mb-3">
+          <label className="form-label fw-bold">Születési idő (ÉÉÉÉ-HH-NN)</label>
+          <input type="text" className="form-control" value={birthDate} onChange={e => setBirthDate(e.target.value)} required placeholder="Pl.: 1950-07-16" />
+        </div>
+
+        {/* VB címek száma input mező */}
+        <div className="mb-3">
+          <label className="form-label fw-bold">Nyert Világbajnokságok száma</label>
+          <input type="number" className="form-control" value={worldChWon} onChange={e => setWorldChWon(e.target.value)} required placeholder="Pl.: 1" />
+        </div>
+
+        {/* Profil URL input mező */}
+        <div className="mb-3">
+          <label className="form-label fw-bold">Profil Link (URL)</label>
+          <input type="url" className="form-control" value={profileUrl} onChange={e => setProfileUrl(e.target.value)} required placeholder="Pl.: https://hu.wikipedia.org/..." />
+        </div>
+
+        {/* Kép URL input mező */}
+        <div className="mb-3">
+          <label className="form-label fw-bold">Kép Link (URL)</label>
+          <input type="url" className="form-control" value={imageUrl} onChange={e => setImageUrl(e.target.value)} required placeholder="Pl.: https://www.sulla.hu/..." />
+        </div>
+        
+        {/* Űrlap elküldése gomb */}
+        <button type="submit" className="btn btn-success w-100 py-2 fw-bold mt-3">
+          <i className="bi bi-cloud-arrow-up-fill me-2 fs-5"></i> Játékos mentése és küldése
+        </button>
+      </form>
+    </div>
+  );
+}
